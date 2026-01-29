@@ -1,13 +1,14 @@
-import time
 import logging
+import os
 import re
+import time
 
 import jwt
 import requests
 from github import Github
 from github.Issue import Issue
-from github.Repository import Repository
 from github.PullRequest import PullRequest
+from github.Repository import Repository
 
 GITHUB_API = "https://api.github.com"
 logger = logging.getLogger("tishcode")
@@ -78,11 +79,11 @@ def get_installation_token(
     """Get installation token for repository."""
     logger.debug(f"Creating JWT for app {app_id}")
     app_jwt = make_app_jwt(app_id, private_key_pem)
-    
+
     logger.debug(f"Getting installation ID for {owner}/{repo}")
     inst_id = get_installation_id(owner, repo, app_jwt)
     logger.debug(f"Installation ID: {inst_id}")
-    
+
     return create_installation_token(inst_id, app_jwt)
 
 
@@ -110,7 +111,28 @@ def create_pr(
     body: str,
 ) -> str:
     """Create pull request and return its URL."""
-    pr = gh_repo.create_pull(
-        title=title, body=body, head=head_branch, base=base_branch
-    )
+    pr = gh_repo.create_pull(title=title, body=body, head=head_branch, base=base_branch)
     return pr.html_url
+
+
+def setup_github_access(owner: str, repo: str, logger) -> tuple[str, object]:
+    """Setup GitHub access: get installation token and repository object."""
+    app_id = os.getenv("GITHUB_APP_ID")
+    private_key_path = os.getenv("GITHUB_PRIVATE_KEY_PATH")
+
+    if not app_id or not private_key_path:
+        raise ValueError(
+            "GITHUB_APP_ID and GITHUB_PRIVATE_KEY_PATH must be set in .env"
+        )
+
+    with open(private_key_path, "r") as f:
+        private_key_pem = f.read()
+
+    logger.info("Getting installation token")
+    installation_token = get_installation_token(app_id, private_key_pem, owner, repo)
+    logger.debug("Installation token obtained")
+
+    logger.info("Getting GitHub repository")
+    gh_repo = get_github_repo(installation_token, owner, repo)
+
+    return installation_token, gh_repo
