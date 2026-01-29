@@ -41,10 +41,12 @@ def main():
     load_dotenv()
     logger = setup_logger()
 
-    parser = argparse.ArgumentParser(
-        description="Process GitHub issue with tishcode agent"
-    )
-    parser.add_argument("--issue-url", required=True, help="GitHub issue URL")
+    parser = argparse.ArgumentParser(description="tishcode - AI coding agent")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    
+    fixissue_parser = subparsers.add_parser("fixissue", help="Process GitHub issue")
+    fixissue_parser.add_argument("issue_url", help="GitHub issue URL")
+    
     args = parser.parse_args()
 
     owner, repo, issue_number = parse_issue_url(args.issue_url)
