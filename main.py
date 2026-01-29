@@ -2,6 +2,7 @@ import argparse
 import os
 import re
 import shutil
+import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -68,9 +69,11 @@ def main():
     logger.info("Fetching issue details")
     issue = get_issue(installation_token, owner, repo, issue_number)
     logger.debug(f"Issue title: {issue.title}")
-
-    repo_path = Path(base_repos_path) / f"{owner}_{repo}_{issue_number}"
+    
+    unique_id = str(uuid.uuid4())[:8]
+    repo_path = Path(base_repos_path) / f"{owner}_{repo}_{issue_number}_{unique_id}"
     repo_path.mkdir(parents=True, exist_ok=True)
+    logger.debug(f"Using temporary directory: {repo_path}")
 
     try:
         logger.info(f"Cloning repository to {repo_path}")
