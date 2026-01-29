@@ -6,7 +6,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from git import Repo
-from src.code_agent import run_code_agent
+from src.code_agent import run_code_agent_fixissue, run_code_agent_fixpr
 from src.github_utils import (
     create_pr,
     extract_issue_number_from_pr_title,
@@ -50,12 +50,17 @@ def main():
     review_parser = subparsers.add_parser("review", help="Review pull request")
     review_parser.add_argument("pr_url", help="GitHub pull request URL")
 
+    fixpr_parser = subparsers.add_parser("fixpr", help="Fix pull request")
+    fixpr_parser.add_argument("pr_url", help="GitHub pull request URL")
+
     args = parser.parse_args()
 
     if args.command == "fixissue":
         handle_fixissue(args.issue_url, logger)
     elif args.command == "review":
         handle_review(args.pr_url, logger)
+    elif args.command == "fixpr":
+        handle_fixpr(args.pr_url, logger)
 
 
 def handle_fixissue(issue_url: str, logger):
@@ -92,7 +97,7 @@ def handle_fixissue(issue_url: str, logger):
         local_repo.git.checkout("-b", branch_name)
 
         logger.info("Running code agent")
-        pr_title, pr_body = run_code_agent(issue, repo_path)
+        pr_title, pr_body = run_code_agent_fixissue(issue, repo_path)
 
         logger.info("Committing changes")
         local_repo.git.add(A=True)
@@ -146,6 +151,65 @@ def handle_review(pr_url: str, logger):
     pull_request.create_review(body=review_comment, event="COMMENT")
 
     logger.info(f"Review posted successfully (approve={approve})")
+
+
+def handle_fixpr(pr_url: str, logger):
+    """Handle fixpr command."""
+    owner, repo, pr_number = parse_pr_url(pr_url)
+    logger.info(f"Fixing PR #{pr_number} in {owner}/{repo}")
+
+    installation_token, gh_repo = setup_github_access(owner, repo, logger)
+    base_repos_path = os.getenv("REPOS_BASE_PATH", "/tmp/tishcode-repos")
+
+    logger.info("Fetching pull request details")
+    pull_request = get_pull_request(gh_repo, pr_number)
+    logger.debug(f"PR title: {pull_request.title}")
+
+    issue_number = extract_issue_number_from_pr_title(pull_request.title)
+    if not issue_number:
+        raise ValueError(
+            f"Could not extract issue number from PR title: {pull_request.title}"
+        )
+    logger.debug(f"Extracted issue number: {issue_number}")
+
+    logger.info(f"Fetching related issue #{issue_number}")
+    issue = get_issue(gh_repo, issue_number)
+    logger.debug(f"Issue title: {issue.title}")
+
+    unique_id = str(uuid.uuid4())[:8]
+    repo_path = Path(base_repos_path) / f"{owner}_{repo}_{pr_number}_{unique_id}"
+    repo_path.mkdir(parents=True, exist_ok=True)
+    logger.debug(f"Using temporary directory: {repo_path}")
+
+    try:
+        logger.info(f"Cloning repository to {repo_path}")
+        repo_url = (
+            f"https://x-access-token:{installation_token}@github.com/{owner}/{repo}.git"
+        )
+        local_repo = Repo.clone_from(repo_url, repo_path)
+
+        branch_name = pull_request.head.ref
+        logger.info(f"Checking out PR branch {branch_name}")
+        local_repo.git.fetch("origin", branch_name)
+        local_repo.git.checkout(branch_name)
+
+        logger.info("Running code agent to fix PR")
+        comment = run_code_agent_fixpr(issue, pull_request, repo_path)
+
+        logger.info("Committing changes")
+        local_repo.git.add(A=True)
+        local_repo.index.commit(f"Agent: apply fixes for PR #{pr_number}")
+
+        logger.info(f"Pushing to remote branch {branch_name}")
+        local_repo.git.push("origin", branch_name)
+
+        logger.info("Posting comment to PR")
+        pull_request.create_issue_comment(body=comment)
+
+        logger.info("PR fix completed successfully")
+    finally:
+        logger.debug(f"Cleaning up repository at {repo_path}")
+        shutil.rmtree(repo_path, ignore_errors=True)
 
 
 if __name__ == "__main__":
