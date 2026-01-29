@@ -1,4 +1,5 @@
 import time
+import logging
 
 import jwt
 import requests
@@ -6,6 +7,7 @@ from github import Github
 from github.Issue import Issue
 
 GITHUB_API = "https://api.github.com"
+logger = logging.getLogger("tishcode")
 
 
 def make_app_jwt(app_id: str, private_key_pem: str) -> str:
@@ -47,8 +49,13 @@ def get_installation_token(
     app_id: str, private_key_pem: str, owner: str, repo: str
 ) -> str:
     """Get installation token for repository."""
+    logger.debug(f"Creating JWT for app {app_id}")
     app_jwt = make_app_jwt(app_id, private_key_pem)
+    
+    logger.debug(f"Getting installation ID for {owner}/{repo}")
     inst_id = get_installation_id(owner, repo, app_jwt)
+    logger.debug(f"Installation ID: {inst_id}")
+    
     return create_installation_token(inst_id, app_jwt)
 
 
