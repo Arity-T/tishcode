@@ -1,13 +1,23 @@
 import time
 import logging
+import re
 
 import jwt
 import requests
 from github import Github
 from github.Issue import Issue
+from github.Repository import Repository
 
 GITHUB_API = "https://api.github.com"
 logger = logging.getLogger("tishcode")
+
+
+def parse_issue_url(issue_url: str) -> tuple[str, str, int]:
+    """Extract owner, repo, and issue number from GitHub issue URL."""
+    match = re.match(r"https://github\.com/([^/]+)/([^/]+)/issues/(\d+)", issue_url)
+    if not match:
+        raise ValueError(f"Invalid issue URL: {issue_url}")
+    return match.group(1), match.group(2), int(match.group(3))
 
 
 def make_app_jwt(app_id: str, private_key_pem: str) -> str:
@@ -59,28 +69,26 @@ def get_installation_token(
     return create_installation_token(inst_id, app_jwt)
 
 
-def get_issue(
-    installation_token: str, owner: str, repo: str, issue_number: int
-) -> Issue:
-    """Fetch issue object from GitHub."""
+def get_github_repo(installation_token: str, owner: str, repo: str) -> Repository:
+    """Get GitHub repository object."""
     gh = Github(installation_token)
-    repo_obj = gh.get_repo(f"{owner}/{repo}")
-    return repo_obj.get_issue(number=issue_number)
+    return gh.get_repo(f"{owner}/{repo}")
+
+
+def get_issue(gh_repo: Repository, issue_number: int) -> Issue:
+    """Fetch issue object from GitHub repository."""
+    return gh_repo.get_issue(number=issue_number)
 
 
 def create_pr(
-    installation_token: str,
-    owner: str,
-    repo: str,
+    gh_repo: Repository,
     head_branch: str,
     base_branch: str,
     title: str,
     body: str,
 ) -> str:
     """Create pull request and return its URL."""
-    gh = Github(installation_token)
-    repo_obj = gh.get_repo(f"{owner}/{repo}")
-    pr = repo_obj.create_pull(
+    pr = gh_repo.create_pull(
         title=title, body=body, head=head_branch, base=base_branch
     )
     return pr.html_url

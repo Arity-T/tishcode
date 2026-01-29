@@ -1,6 +1,5 @@
 import argparse
 import os
-import re
 import shutil
 import uuid
 from pathlib import Path
@@ -8,16 +7,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 from git import Repo
 from src.code_agent import run_code_agent
-from src.github_utils import create_pr, get_installation_token, get_issue
+from src.github_utils import (
+    create_pr,
+    get_github_repo,
+    get_installation_token,
+    get_issue,
+    parse_issue_url,
+)
 from src.logger import setup_logger
-
-
-def parse_issue_url(issue_url: str) -> tuple[str, str, int]:
-    """Extract owner, repo, and issue number from GitHub issue URL."""
-    match = re.match(r"https://github\.com/([^/]+)/([^/]+)/issues/(\d+)", issue_url)
-    if not match:
-        raise ValueError(f"Invalid issue URL: {issue_url}")
-    return match.group(1), match.group(2), int(match.group(3))
 
 
 def get_unique_branch_name(local_repo: Repo, base_name: str, logger) -> str:
@@ -43,10 +40,10 @@ def main():
 
     parser = argparse.ArgumentParser(description="tishcode - AI coding agent")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    
+
     fixissue_parser = subparsers.add_parser("fixissue", help="Process GitHub issue")
     fixissue_parser.add_argument("issue_url", help="GitHub issue URL")
-    
+
     args = parser.parse_args()
 
     owner, repo, issue_number = parse_issue_url(args.issue_url)
@@ -68,10 +65,13 @@ def main():
     installation_token = get_installation_token(app_id, private_key_pem, owner, repo)
     logger.debug(f"Installation token obtained")
 
+    logger.info("Getting GitHub repository")
+    gh_repo = get_github_repo(installation_token, owner, repo)
+
     logger.info("Fetching issue details")
-    issue = get_issue(installation_token, owner, repo, issue_number)
+    issue = get_issue(gh_repo, issue_number)
     logger.debug(f"Issue title: {issue.title}")
-    
+
     unique_id = str(uuid.uuid4())[:8]
     repo_path = Path(base_repos_path) / f"{owner}_{repo}_{issue_number}_{unique_id}"
     repo_path.mkdir(parents=True, exist_ok=True)
@@ -105,9 +105,7 @@ def main():
 
         logger.info("Creating pull request")
         pr_url = create_pr(
-            installation_token,
-            owner,
-            repo,
+            gh_repo,
             head_branch=branch_name,
             base_branch="main",
             title=pr_title,
