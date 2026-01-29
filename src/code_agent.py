@@ -24,7 +24,7 @@ def run_code_agent(issue: Issue, repo_path: Path) -> tuple[str, str]:
     readme_path.write_text(content)
     logger.debug("Updated README.md")
 
-    pr_title = f"[Agent] Fix issue #{issue.number}"
+    pr_title = f"Fix issue {issue.title}"
     pr_body = f"Closes #{issue.number}\n\nAutomated changes by tishcode agent."
 
     return pr_title, pr_body

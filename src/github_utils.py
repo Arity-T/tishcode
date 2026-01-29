@@ -7,6 +7,7 @@ import requests
 from github import Github
 from github.Issue import Issue
 from github.Repository import Repository
+from github.PullRequest import PullRequest
 
 GITHUB_API = "https://api.github.com"
 logger = logging.getLogger("tishcode")
@@ -18,6 +19,22 @@ def parse_issue_url(issue_url: str) -> tuple[str, str, int]:
     if not match:
         raise ValueError(f"Invalid issue URL: {issue_url}")
     return match.group(1), match.group(2), int(match.group(3))
+
+
+def parse_pr_url(pr_url: str) -> tuple[str, str, int]:
+    """Extract owner, repo, and PR number from GitHub pull request URL."""
+    match = re.match(r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
+    if not match:
+        raise ValueError(f"Invalid pull request URL: {pr_url}")
+    return match.group(1), match.group(2), int(match.group(3))
+
+
+def extract_issue_number_from_pr_title(pr_title: str) -> int | None:
+    """Extract issue number from PR title with format '[tishcode fix issue #123]'."""
+    match = re.search(r"\[tishcode fix issue #(\d+)\]", pr_title, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    return None
 
 
 def make_app_jwt(app_id: str, private_key_pem: str) -> str:
@@ -78,6 +95,11 @@ def get_github_repo(installation_token: str, owner: str, repo: str) -> Repositor
 def get_issue(gh_repo: Repository, issue_number: int) -> Issue:
     """Fetch issue object from GitHub repository."""
     return gh_repo.get_issue(number=issue_number)
+
+
+def get_pull_request(gh_repo: Repository, pr_number: int) -> PullRequest:
+    """Fetch pull request object from GitHub repository."""
+    return gh_repo.get_pull(number=pr_number)
 
 
 def create_pr(
