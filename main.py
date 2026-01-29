@@ -9,6 +9,7 @@ from src.github_utils import (
     extract_issue_number_from_pr_title,
     get_issue,
     get_pull_request,
+    get_workflow_runs_and_logs,
     parse_issue_url,
     parse_pr_url,
     setup_github_access,
@@ -109,8 +110,13 @@ def handle_review(pr_url: str, logger):
     issue = get_issue(gh_repo, issue_number)
     logger.debug(f"Issue title: {issue.title}")
 
+    logger.info("Getting workflow run results")
+    workflow_runs, failed_job_logs = get_workflow_runs_and_logs(gh_repo, pull_request)
+
     logger.info("Running review agent")
-    review_comment, approve = run_review_agent(pull_request, issue)
+    review_comment, approve = run_review_agent(
+        pull_request, issue, workflow_runs, failed_job_logs
+    )
 
     logger.info("Posting review comment")
     pull_request.create_review(body=review_comment, event="COMMENT")

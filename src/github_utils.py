@@ -9,6 +9,7 @@ from github import Github
 from github.Issue import Issue
 from github.PullRequest import PullRequest
 from github.Repository import Repository
+from github.WorkflowRun import WorkflowRun
 
 GITHUB_API = "https://api.github.com"
 logger = logging.getLogger("tishcode")
@@ -36,6 +37,41 @@ def extract_issue_number_from_pr_title(pr_title: str) -> int | None:
     if match:
         return int(match.group(1))
     return None
+
+
+def get_workflow_runs_and_logs(
+    gh_repo: Repository, pull_request: PullRequest
+) -> tuple[list[WorkflowRun], dict[int, str | None]]:
+    """Get all workflow runs for PR and logs of failed jobs."""
+    sha = pull_request.head.sha
+    logger.debug(f"Getting workflow runs for SHA: {sha}")
+
+    runs = list(gh_repo.get_workflow_runs(head_sha=sha))
+    logger.debug(f"Found {len(runs)} workflow runs")
+
+    failed_job_logs = {}
+
+    for run in runs:
+        if run.conclusion in ("failure", "timed_out"):
+            logger.debug(f"Processing failed run: {run.name} - {run.conclusion}")
+            jobs = run.jobs()
+
+            for job in jobs:
+                if job.conclusion in ("failure", "timed_out"):
+                    logger.debug(
+                        f"Getting logs for failed job: {job.name} (id={job.id})"
+                    )
+                    try:
+                        r = requests.get(job.logs_url(), timeout=30)
+                        r.raise_for_status()
+                        logs_text = r.content.decode("utf-8-sig")
+                        failed_job_logs[job.id] = logs_text
+                    except Exception as e:
+                        logger.warning(f"Failed to get logs for job {job.name}: {e}")
+                        failed_job_logs[job.id] = None
+
+    logger.debug(f"Found {len(failed_job_logs)} failed jobs with logs")
+    return runs, failed_job_logs
 
 
 def make_app_jwt(app_id: str, private_key_pem: str) -> str:
