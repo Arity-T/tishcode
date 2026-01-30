@@ -46,7 +46,7 @@ def handle_fixissue(issue_url: str) -> str:
         local_repo.git.checkout("-b", branch_name)
 
         logger.info("Running code agent")
-        pr_title, pr_body = run_code_agent_fixissue(issue, repo_path)
+        pr_description = run_code_agent_fixissue(issue, repo_path)
 
         logger.info("Committing changes")
         local_repo.git.add(A=True)
@@ -56,14 +56,14 @@ def handle_fixissue(issue_url: str) -> str:
         local_repo.git.push("origin", branch_name)
 
         logger.info("Creating pull request")
-        full_pr_title = f"[tishcode fix issue #{issue_number}] {pr_title}"
-        pr_body = f"{pr_body}\n\nCloses #{issue_number}"
+        pr_title = f"[tishcode fix issue #{issue_number}] {issue.title}"
+        pr_body = f"{pr_description}\n\nCloses #{issue_number}"
         pr_body = add_agent_signature(pr_body)
         pr_url = create_pr(
             gh_repo,
             head_branch=branch_name,
             base_branch=gh_repo.default_branch,
-            title=full_pr_title,
+            title=pr_title,
             body=pr_body,
         )
 
