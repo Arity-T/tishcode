@@ -184,15 +184,14 @@ async def github_webhook(
         pr_url = payload.get("pull_request", {}).get("html_url")
         review_state = payload.get("review", {}).get("state")
 
-        if pr_url and review_state == "changes_requested":
+        if pr_url:
             logger.info(
                 f"[webhook] PR review submitted: {pr_url} (state: {review_state})"
             )
             background_tasks.add_task(process_pr_review_submitted, pr_url)
             return {"ok": True, "message": "Processing PR fix in background"}
 
-        logger.debug(f"[webhook] Ignoring review with state: {review_state}")
-        return {"ok": True, "message": f"Ignoring review state: {review_state}"}
+        return {"ok": False, "message": "No PR URL in payload"}
 
     # Handle check_suite completed - review
     if event == "check_suite" and action == "completed":
