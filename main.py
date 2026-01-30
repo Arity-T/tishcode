@@ -1,5 +1,4 @@
 import argparse
-import os
 
 from dotenv import load_dotenv
 from src.code_agent import run_code_agent_fixissue, run_code_agent_fixpr
@@ -119,8 +118,32 @@ def handle_review(pr_url: str, logger):
         pull_request, issue, workflow_runs, failed_job_logs
     )
 
+    # Add approval status header
+    status_icon = "✅" if approve else "❌"
+    status_text = "APPROVED - Ready to merge" if approve else "CHANGES REQUESTED - Issues need to be fixed"
+    
+    formatted_comment = f"## {status_icon} Code Review Result: {status_text}\n\n"
+    
+    # Add failed workflows summary if any
+    failed_runs = [run for run in workflow_runs if run.conclusion in ("failure", "timed_out")]
+    if failed_runs:
+        formatted_comment += "### ⚠️ Failed Workflows\n\n"
+        for run in failed_runs:
+            formatted_comment += f"**{run.name}** ({run.conclusion})\n"
+            jobs = list(run.jobs())
+            failed_jobs = [job for job in jobs if job.conclusion in ("failure", "timed_out")]
+            if failed_jobs:
+                formatted_comment += "  - Failed jobs: " + ", ".join([f"`{job.name}`" for job in failed_jobs]) + "\n"
+        formatted_comment += "\n---\n\n"
+    
+    # Add agent's review comment
+    formatted_comment += review_comment
+    
+    # Add footer signature
+    formatted_comment += "\n\n---\n*🤖 Automated review by tishcode agent*"
+
     logger.info("Posting review comment")
-    pull_request.create_review(body=review_comment, event="COMMENT")
+    pull_request.create_review(body=formatted_comment, event="COMMENT")
 
     logger.info(f"Review posted successfully (approve={approve})")
 
