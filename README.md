@@ -48,6 +48,51 @@ uv run uvicorn server:app --reload --port 8000
 
 Состояние (количество попыток) хранится в SQLite (`TC_DB_PATH`).
 
+## Docker
+
+Пример `.env` для Docker: `.env.docker-example` (без переменных с путями, они фиксированы в образе).
+
+### Сервер (webhook)
+
+```bash
+# Подготовка
+cp .env.docker-example .env.docker
+# .env.docker заполняем своими значениями
+
+# Помещаем private-key.pem в директорию с проектом, либо задаём переменную окружения
+# export HOST_GITHUB_PRIVATE_KEY_PATH=/path/to/your/private-key.pem
+
+# Также можно задать переменную для указание порта, отличного от 8000
+# export HOST_PORT=8001
+
+# Сборка и запуск
+docker compose build
+docker compose up -d
+```
+
+### CLI
+
+```bash
+# Сборка
+docker build -f Dockerfile.cli -t tishcode-cli .
+
+# Запуск (укажи путь к своему .pem файлу)
+docker run --rm \
+  --env-file .env.docker \
+  -v ./private-key.pem:/app/private-key.pem:ro \
+  tishcode-cli fixissue <issue-url>
+
+docker run --rm \
+  --env-file .env.docker \
+  -v ./private-key.pem:/app/private-key.pem:ro \
+  tishcode-cli review <pr-url>
+
+docker run --rm \
+  --env-file .env.docker \
+  -v ./private-key.pem:/app/private-key.pem:ro \
+  tishcode-cli fixpr <pr-url>
+```
+
 ## Проверка кода
 
 В проекте используются ruff для форматирования кода.

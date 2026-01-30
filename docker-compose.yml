@@ -1,0 +1,14 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+    # Example in .env.docker-example
+    env_file:
+      - .env.docker
+    volumes:
+      - ./data:/app/data
+      - ${HOST_GITHUB_PRIVATE_KEY_PATH:-./private-key.pem}:/app/private-key.pem:ro
+    restart: unless-stopped

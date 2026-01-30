@@ -1,0 +1,10 @@
+# Ignore everything by default
+*
+
+# Include only what we need
+!pyproject.toml
+!uv.lock
+!main.py
+!server.py
+!src/
+!src/**/*.py
