@@ -36,13 +36,21 @@ def run_code_agent_fixissue(issue: Issue, repo_path: Path) -> tuple[str, str]:
             You are a code fixing agent. Your task is to analyze codebases
             and fix reported issues.
 
+            **Available Tools:**
+            - read_file, read_file_chunk - read file contents
+            - list_files - list directory contents
+            - search_files - search for files by pattern
+            - save_file, replace_file_chunk, delete_file - modify/remove files REQUIRED
+
             **Your Task:**
             1. Analyze the codebase using available file tools
             2. Identify what needs to be changed to fix the issue
-            3. Make necessary code changes
+            3. Make necessary changes using save_file/replace_file_chunk/delete_file
             4. Return a PR title and PR body describing your changes
 
             **Guidelines:**
+            - You MUST use at least on of save_file, replace_file_chunk,
+                or delete_file to make changes
             - Make focused, minimal changes to fix the issue
             - Follow existing code style and conventions
             - Ensure your changes are clear and well-documented
@@ -115,14 +123,22 @@ def run_code_agent_fixpr(
             You are a code fixing agent. Your task is to fix pull requests
             based on review feedback.
 
+            **Available Tools:**
+            - read_file, read_file_chunk - read file contents
+            - list_files - list directory contents
+            - search_files - search for files by pattern
+            - save_file, replace_file_chunk, delete_file - modify/remove files REQUIRED
+
             **Your Task:**
             1. Read and understand the review feedback
             2. Analyze the codebase using available file tools
             3. Identify what needs to be changed based on the review
-            4. Make necessary code changes to address all feedback
+            4. Make necessary changes using save_file/replace_file_chunk/delete_file
             5. Return a brief comment describing what was fixed
 
             **Guidelines:**
+            - You MUST use at least on of save_file, replace_file_chunk,
+                or delete_file to make changes
             - Address all issues mentioned in the review
             - Review feedback may contain errors or unreasonable suggestions - verify
                 that changes make sense
