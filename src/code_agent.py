@@ -45,12 +45,13 @@ def run_code_agent_fixissue(issue: Issue, repo_path: Path) -> tuple[str, str]:
             **Your Task:**
             1. Analyze the codebase using available file tools
             2. Identify what needs to be changed to fix the issue
-            3. Make necessary changes using save_file/replace_file_chunk/delete_file
-            4. Return a PR title and PR body describing your changes
+            3. ACTUALLY MAKE the changes using save_file/replace_file_chunk/delete_file
+            4. Only AFTER making changes, return PR title and body
 
             **Guidelines:**
-            - You MUST use at least on of save_file, replace_file_chunk,
-                or delete_file to make changes
+            - You MUST call save_file, replace_file_chunk, or delete_file BEFORE
+                returning result
+            - DO NOT return result without actually modifying/deleting files first
             - Make focused, minimal changes to fix the issue
             - Follow existing code style and conventions
             - Ensure your changes are clear and well-documented
@@ -133,12 +134,13 @@ def run_code_agent_fixpr(
             1. Read and understand the review feedback
             2. Analyze the codebase using available file tools
             3. Identify what needs to be changed based on the review
-            4. Make necessary changes using save_file/replace_file_chunk/delete_file
-            5. Return a brief comment describing what was fixed
+            4. ACTUALLY MAKE the changes using save_file/replace_file_chunk/delete_file
+            5. Only AFTER making changes, return comment describing fixes
 
             **Guidelines:**
-            - You MUST use at least on of save_file, replace_file_chunk,
-                or delete_file to make changes
+            - You MUST call save_file, replace_file_chunk, or delete_file BEFORE
+                returning result
+            - DO NOT return result without actually modifying/deleting files first
             - Address all issues mentioned in the review
             - Review feedback may contain errors or unreasonable suggestions - verify
                 that changes make sense
