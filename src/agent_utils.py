@@ -4,14 +4,13 @@ import os
 from agno.models.openai import OpenAIChat
 from github.PullRequest import PullRequest
 
-
 logger = logging.getLogger("tishcode")
 
 
 def get_pr_changes(pull_request: PullRequest) -> list[dict[str, str | int]]:
     """Extract code changes from pull request in structured format."""
     files = pull_request.get_files()
-    changes = []
+    changes: list[dict[str, str | int]] = []
     for f in files:
         changes.append({
             "filename": f.filename,

@@ -2,8 +2,10 @@ import logging
 import os
 import shutil
 import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from git import Repo
 
@@ -28,7 +30,9 @@ def get_unique_branch_name(local_repo: Repo, base_name: str) -> str:
 
 
 @contextmanager
-def clone_temp_repo(owner: str, repo: str, installation_token: str):
+def clone_temp_repo(
+    owner: str, repo: str, installation_token: str
+) -> Generator[tuple[Repo, Path], Any, None]:
     """Context manager for cloning repository to temporary directory."""
     base_repos_path = os.getenv("TC_REPOS_BASE_PATH")
     if not base_repos_path:

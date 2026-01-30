@@ -108,7 +108,7 @@ def get_installation_id(owner: str, repo: str, app_jwt: str) -> int:
         timeout=30,
     )
     r.raise_for_status()
-    return r.json()["id"]
+    return int(r.json()["id"])
 
 
 def create_installation_token(installation_id: int, app_jwt: str) -> str:
@@ -122,7 +122,7 @@ def create_installation_token(installation_id: int, app_jwt: str) -> str:
         timeout=30,
     )
     r.raise_for_status()
-    return r.json()["token"]
+    return str(r.json()["token"])
 
 
 def get_installation_token(
@@ -167,7 +167,7 @@ def create_pr(
     return pr.html_url
 
 
-def setup_github_access(owner: str, repo: str) -> tuple[str, object]:
+def setup_github_access(owner: str, repo: str) -> tuple[str, Repository]:
     """Setup GitHub access: get installation token and repository object."""
     app_id = os.getenv("TC_GITHUB_APP_ID")
     private_key_path = os.getenv("TC_GITHUB_PRIVATE_KEY_PATH")
@@ -177,7 +177,7 @@ def setup_github_access(owner: str, repo: str) -> tuple[str, object]:
             "TC_GITHUB_APP_ID and TC_GITHUB_PRIVATE_KEY_PATH must be set in .env"
         )
 
-    with open(private_key_path, "r") as f:
+    with open(private_key_path) as f:
         private_key_pem = f.read()
 
     logger.info("Getting installation token")

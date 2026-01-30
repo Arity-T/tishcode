@@ -47,3 +47,18 @@ uv run uvicorn server:app --reload --port 8000
 4. Повтор шагов 2-3 до approve или достижения `TC_MAX_RETRIES`
 
 Состояние (количество попыток) хранится в SQLite (`TC_DB_PATH`).
+
+## Проверка кода
+
+В проекте используются ruff для форматирования кода.
+
+```bash
+uv run ruff check .
+uv run ruff check . --fix
+```
+
+Mypy для проверки типов.
+
+```bash
+uv run mypy .
+```

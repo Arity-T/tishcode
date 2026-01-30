@@ -3,10 +3,12 @@
 import hashlib
 import hmac
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+
 from src.db import (
     get_fix_attempts,
     increment_fix_attempts,
@@ -35,7 +37,7 @@ MAX_RETRIES = int(_max_retries)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger = setup_logger()
     logger.info("tishcode webhook server started")
     logger.info(f"Max fix retries: {MAX_RETRIES}")
@@ -59,6 +61,7 @@ def verify_github_signature(body: bytes, sig_header: str | None) -> None:
     if algo != "sha256":
         raise HTTPException(status_code=400, detail="Unsupported signature algorithm")
 
+    assert WEBHOOK_SECRET is not None
     mac = hmac.new(WEBHOOK_SECRET.encode("utf-8"), msg=body, digestmod=hashlib.sha256)
     expected = mac.hexdigest()
 
@@ -94,7 +97,8 @@ def process_pr_review_submitted(pr_url: str) -> None:
         attempts = get_fix_attempts(owner, repo, pr_number)
         if attempts >= MAX_RETRIES:
             logger.warning(
-                f"[webhook] PR {pr_url} max retries ({MAX_RETRIES}) reached, skipping fixpr"
+                f"[webhook] PR {pr_url} max retries ({MAX_RETRIES}) "
+                "reached, skipping fixpr"
             )
             mark_pr_completed(owner, repo, pr_number)
             return
@@ -130,7 +134,9 @@ def process_check_suite_completed(pr_url: str) -> None:
 
         # Check if all workflows are completed
         if not are_all_workflows_completed(gh_repo, pull_request.head.sha):
-            logger.info(f"[webhook] Not all workflows completed for PR {pr_url}, skipping")
+            logger.info(
+                f"[webhook] Not all workflows completed for PR {pr_url}, skipping"
+            )
             return
 
         # Run review
@@ -146,7 +152,9 @@ def process_check_suite_completed(pr_url: str) -> None:
 
 
 @app.post("/webhook")
-async def github_webhook(request: Request, background_tasks: BackgroundTasks):
+async def github_webhook(
+    request: Request, background_tasks: BackgroundTasks
+) -> dict[str, str | bool]:
     """Handle GitHub webhook events."""
     body = await request.body()
     verify_github_signature(body, request.headers.get("X-Hub-Signature-256"))
@@ -211,6 +219,6 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok"}

@@ -72,7 +72,7 @@ def run_review_agent(
     pull_request: PullRequest,
     issue: Issue,
     workflow_runs: list[WorkflowRun],
-    failed_job_logs: dict[int, str],
+    failed_job_logs: dict[int, str | None],
 ) -> tuple[str, bool]:
     """Run review agent to analyze pull request and provide feedback."""
     logger.info(f"Starting review agent for PR #{pull_request.number}")
@@ -142,15 +142,16 @@ def run_review_agent(
         output_schema=ReviewResult,
         use_json_mode=True,
         instructions=dedent("""\
-            You are a code review agent. Your task is to analyze pull requests and provide constructive feedback.
-            
+            You are a code review agent. Your task is to analyze pull requests
+            and provide constructive feedback.
+
             **Your Task:**
             1. Review the code changes in the PR
             2. Check if changes match the issue requirements
             3. Analyze CI/CD workflow results
             4. Identify errors and their root causes
             5. Provide a review comment and approval decision
-            
+
             **Guidelines:**
             - Be concise and constructive in your feedback
             - Focus on critical issues and errors
@@ -158,48 +159,56 @@ def run_review_agent(
             - Approve (approve=true) only if all checks pass and changes are correct
             - Reject (approve=false) if there are failing tests or issues
             - Write the review comment in the same language as the issue
-            
+
             **When analyzing logs with errors:**
-            - Specify the exact file names and line numbers where errors occurred (if available in logs)
-            - Extract and quote exact error messages from logs - use can use markdown code blocks
-            - Format log quotes clearly, for example: "Error message from logs: ```exact quote```"
-            - If file paths and line numbers are present in logs, include them precisely as they appear
-            - Never make up error messages or file locations - only use information explicitly present in the logs
+            - Specify the exact file names and line numbers where errors occurred
+                (if available in logs)
+            - Extract and quote exact error messages from logs - use can use markdown
+                code blocks
+            - If file paths and line numbers are present in logs, include them precisely
+                as they appear
+            - Never make up error messages or file locations - only use information
+                explicitly present in the logs
         """),
-        tool_call_limit=int(os.getenv("TC_AGENT_TOOL_CALL_LIMIT")),
     )
+
+    tool_call_limit = os.getenv("TC_AGENT_TOOL_CALL_LIMIT")
+    if not tool_call_limit:
+        raise ValueError("TC_AGENT_TOOL_CALL_LIMIT environment variable is not set")
+    agent.tool_call_limit = int(tool_call_limit)
 
     # Prepare user message
     user_message = dedent(f"""\
         Review the following pull request:
-        
+
         **PR Title: {pull_request.title}**
-        
+
         **Related Issue Title: {issue.title}**
         {issue.body or "No description provided."}
-        
+
         **Code Changes:**
         ```json
         {json.dumps(changes, indent=2, ensure_ascii=False)}
         ```
-        
+
         **All Workflow Runs:**
         ```json
         {json.dumps(workflows_summary, indent=2, ensure_ascii=False)}
         ```
-        
+
         **Failed Workflows with Logs:**
         ```json
         {json.dumps(failed_workflows, indent=2, ensure_ascii=False)}
         ```
-        
+
         Analyze the changes and CI results, then provide your review.
     """)
 
     logger.debug("Running review agent")
     response = agent.run(user_message, stream=False)
 
-    result: ReviewResult = response.content
+    result = response.content
+    assert result is not None, "Agent response content is None"
     logger.info(f"Review completed. Approve: {result.approve}")
 
     return result.review_comment, result.approve

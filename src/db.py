@@ -2,8 +2,10 @@
 
 import os
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -30,7 +32,7 @@ def get_connection() -> sqlite3.Connection:
 
 
 @contextmanager
-def db_connection():
+def db_connection() -> Generator[sqlite3.Connection, Any, None]:
     """Context manager for database connection."""
     conn = get_connection()
     try:
@@ -70,7 +72,9 @@ def increment_fix_attempts(owner: str, repo: str, pr_number: int) -> int:
         cursor = conn.execute(
             "SELECT attempts FROM pr_fix_attempts WHERE pr_key = ?", (pr_key,)
         )
-        return cursor.fetchone()[0]
+        result = cursor.fetchone()
+        assert result is not None
+        return int(result[0])
 
 
 def mark_pr_completed(owner: str, repo: str, pr_number: int) -> None:

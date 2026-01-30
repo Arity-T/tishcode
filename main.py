@@ -8,7 +8,7 @@ from src.handlers import handle_fixissue, handle_fixpr, handle_review
 from src.logger import setup_logger
 
 
-def main():
+def main() -> None:
     load_dotenv()
     setup_logger()
 
