@@ -29,7 +29,7 @@ def run_code_agent_fixissue(issue: Issue, repo_path: Path) -> tuple[str, str]:
     agent = Agent(
         name="TishCodeAgent",
         model=create_openai_model(),
-        tools=[FileTools(base_dir=repo_path)],
+        tools=[FileTools(base_dir=repo_path, enable_delete_file=True)],
         output_schema=PRResult,
         use_json_mode=True,
         instructions=dedent("""\
@@ -87,7 +87,7 @@ def run_code_agent_fixpr(
         logger.debug(
             f"Latest review by {latest_review.user.login}: {latest_review.state}"
         )
-    
+
     # Get code changes
     logger.debug("Fetching file changes from PR")
     changes = get_pr_changes(pull_request)
@@ -95,7 +95,7 @@ def run_code_agent_fixpr(
     agent = Agent(
         name="TishCodeFixPRAgent",
         model=create_openai_model(),
-        tools=[FileTools(base_dir=repo_path)],
+        tools=[FileTools(base_dir=repo_path, enable_delete_file=True)],
         instructions=dedent("""\
             You are a code fixing agent. Your task is to fix pull requests based on review feedback.
             
