@@ -151,7 +151,7 @@ def create_pr(
     return pr.html_url
 
 
-def setup_github_access(owner: str, repo: str, logger) -> tuple[str, object]:
+def setup_github_access(owner: str, repo: str) -> tuple[str, object]:
     """Setup GitHub access: get installation token and repository object."""
     app_id = os.getenv("TC_GITHUB_APP_ID")
     private_key_path = os.getenv("TC_GITHUB_PRIVATE_KEY_PATH")

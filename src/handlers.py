@@ -29,7 +29,7 @@ def handle_fixissue(issue_url: str) -> str:
     owner, repo, issue_number = parse_issue_url(issue_url)
     logger.info(f"Processing issue #{issue_number} in {owner}/{repo}")
 
-    installation_token, gh_repo = setup_github_access(owner, repo, logger)
+    installation_token, gh_repo = setup_github_access(owner, repo)
 
     logger.info("Fetching issue details")
     issue = get_issue(gh_repo, issue_number)
@@ -76,7 +76,7 @@ def handle_review(pr_url: str) -> None:
     owner, repo, pr_number = parse_pr_url(pr_url)
     logger.info(f"Reviewing PR #{pr_number} in {owner}/{repo}")
 
-    _, gh_repo = setup_github_access(owner, repo, logger)
+    _, gh_repo = setup_github_access(owner, repo)
 
     logger.info("Fetching pull request details")
     pull_request = get_pull_request(gh_repo, pr_number)
@@ -148,7 +148,7 @@ def handle_fixpr(pr_url: str) -> None:
     owner, repo, pr_number = parse_pr_url(pr_url)
     logger.info(f"Fixing PR #{pr_number} in {owner}/{repo}")
 
-    installation_token, gh_repo = setup_github_access(owner, repo, logger)
+    installation_token, gh_repo = setup_github_access(owner, repo)
 
     logger.info("Fetching pull request details")
     pull_request = get_pull_request(gh_repo, pr_number)

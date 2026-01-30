@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 
-from src.handlers import handle_fixissue
+from src.handlers import handle_fixissue, handle_fixpr
 from src.logger import setup_logger
 
 load_dotenv()
@@ -60,6 +60,17 @@ def process_issue_opened(issue_url: str) -> None:
         logger.error(f"[webhook] Failed to process issue: {e}")
 
 
+def process_pr_review(pr_url: str) -> None:
+    """Background task to process PR review."""
+    logger = setup_logger()
+    logger.info(f"[webhook] Processing PR review: {pr_url}")
+    try:
+        handle_fixpr(pr_url)
+        logger.info(f"[webhook] Fixed PR: {pr_url}")
+    except Exception as e:
+        logger.error(f"[webhook] Failed to fix PR: {e}")
+
+
 @app.post("/webhook")
 async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     """Handle GitHub webhook events."""
@@ -85,6 +96,17 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             background_tasks.add_task(process_issue_opened, issue_url)
             return {"ok": True, "message": "Processing issue in background"}
         return {"ok": False, "message": "No issue URL in payload"}
+
+    # Handle pull request review submitted
+    if event == "pull_request_review" and action == "submitted":
+        pr_url = payload.get("pull_request", {}).get("html_url")
+        review_state = payload.get("review", {}).get("state")
+        # Only process reviews that are not dismissed (commented, approved, changes_requested)
+        if pr_url and review_state != "dismissed":
+            logger.info(f"[webhook] PR review submitted: {pr_url} (state: {review_state})")
+            background_tasks.add_task(process_pr_review, pr_url)
+            return {"ok": True, "message": "Processing PR review in background"}
+        return {"ok": False, "message": "No PR URL in payload or review dismissed"}
 
     # Ignore other events for now
     logger.debug(f"[webhook] Ignored event: {event} action: {action}")
