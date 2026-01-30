@@ -7,21 +7,38 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
-
-from src.handlers import handle_fixissue, handle_fixpr
+from src.db import (
+    get_fix_attempts,
+    increment_fix_attempts,
+    is_pr_completed,
+    mark_pr_completed,
+)
+from src.github_utils import (
+    are_all_workflows_completed,
+    get_pull_request,
+    parse_pr_url,
+    setup_github_access,
+)
+from src.handlers import handle_fixissue, handle_fixpr, handle_review
 from src.logger import setup_logger
 
 load_dotenv()
 
-WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "")
+WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET")
 if not WEBHOOK_SECRET:
     raise RuntimeError("Missing GITHUB_WEBHOOK_SECRET in .env")
+
+_max_retries = os.getenv("TC_MAX_RETRIES")
+if not _max_retries:
+    raise RuntimeError("Missing TC_MAX_RETRIES in .env")
+MAX_RETRIES = int(_max_retries)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger = setup_logger()
     logger.info("tishcode webhook server started")
+    logger.info(f"Max fix retries: {MAX_RETRIES}")
     yield
     logger.info("tishcode webhook server stopped")
 
@@ -50,7 +67,7 @@ def verify_github_signature(body: bytes, sig_header: str | None) -> None:
 
 
 def process_issue_opened(issue_url: str) -> None:
-    """Background task to process opened issue."""
+    """Background task: issues/opened - handle_fixissue."""
     logger = setup_logger()
     logger.info(f"[webhook] Processing new issue: {issue_url}")
     try:
@@ -60,15 +77,72 @@ def process_issue_opened(issue_url: str) -> None:
         logger.error(f"[webhook] Failed to process issue: {e}")
 
 
-def process_pr_review(pr_url: str) -> None:
-    """Background task to process PR review."""
+def process_pr_review_submitted(pr_url: str) -> None:
+    """Background task: pull_request_review/submitted - handle_fixpr."""
     logger = setup_logger()
-    logger.info(f"[webhook] Processing PR review: {pr_url}")
+    logger.info(f"[webhook] Processing PR review submitted: {pr_url}")
+
     try:
+        owner, repo, pr_number = parse_pr_url(pr_url)
+
+        # Check if PR processing is already completed
+        if is_pr_completed(owner, repo, pr_number):
+            logger.info(f"[webhook] PR {pr_url} already completed, skipping fixpr")
+            return
+
+        # Check retry limit
+        attempts = get_fix_attempts(owner, repo, pr_number)
+        if attempts >= MAX_RETRIES:
+            logger.warning(
+                f"[webhook] PR {pr_url} max retries ({MAX_RETRIES}) reached, skipping fixpr"
+            )
+            mark_pr_completed(owner, repo, pr_number)
+            return
+
+        # Run fixpr and increment counter
+        logger.info(
+            f"[webhook] Running fixpr for PR: {pr_url} (attempt {attempts + 1})"
+        )
+        increment_fix_attempts(owner, repo, pr_number)
         handle_fixpr(pr_url)
         logger.info(f"[webhook] Fixed PR: {pr_url}")
+
     except Exception as e:
         logger.error(f"[webhook] Failed to fix PR: {e}")
+
+
+def process_check_suite_completed(pr_url: str) -> None:
+    """Background task: check_suite/completed - handle_review."""
+    logger = setup_logger()
+    logger.info(f"[webhook] Processing check_suite completed for PR: {pr_url}")
+
+    try:
+        owner, repo, pr_number = parse_pr_url(pr_url)
+
+        # Check if PR processing is already completed
+        if is_pr_completed(owner, repo, pr_number):
+            logger.info(f"[webhook] PR {pr_url} already completed, skipping review")
+            return
+
+        # Get PR to check all workflows status
+        _, gh_repo = setup_github_access(owner, repo)
+        pull_request = get_pull_request(gh_repo, pr_number)
+
+        # Check if all workflows are completed
+        if not are_all_workflows_completed(gh_repo, pull_request.head.sha):
+            logger.info(f"[webhook] Not all workflows completed for PR {pr_url}, skipping")
+            return
+
+        # Run review
+        logger.info(f"[webhook] Running review for PR: {pr_url}")
+        approved = handle_review(pr_url)
+
+        if approved:
+            logger.info(f"[webhook] PR {pr_url} approved, marking as completed")
+            mark_pr_completed(owner, repo, pr_number)
+
+    except Exception as e:
+        logger.error(f"[webhook] Failed to review PR: {e}")
 
 
 @app.post("/webhook")
@@ -88,7 +162,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         logger.info("[webhook] Ping received")
         return {"ok": True, "message": "pong"}
 
-    # Handle issue opened
+    # Handle issue opened - fixissue
     if event == "issues" and action == "opened":
         issue_url = payload.get("issue", {}).get("html_url")
         if issue_url:
@@ -97,18 +171,41 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             return {"ok": True, "message": "Processing issue in background"}
         return {"ok": False, "message": "No issue URL in payload"}
 
-    # Handle pull request review submitted
+    # Handle pull request review submitted - fixpr
     if event == "pull_request_review" and action == "submitted":
         pr_url = payload.get("pull_request", {}).get("html_url")
         review_state = payload.get("review", {}).get("state")
-        # Only process reviews that are not dismissed (commented, approved, changes_requested)
-        if pr_url and review_state != "dismissed":
-            logger.info(f"[webhook] PR review submitted: {pr_url} (state: {review_state})")
-            background_tasks.add_task(process_pr_review, pr_url)
-            return {"ok": True, "message": "Processing PR review in background"}
-        return {"ok": False, "message": "No PR URL in payload or review dismissed"}
 
-    # Ignore other events for now
+        if pr_url and review_state == "changes_requested":
+            logger.info(
+                f"[webhook] PR review submitted: {pr_url} (state: {review_state})"
+            )
+            background_tasks.add_task(process_pr_review_submitted, pr_url)
+            return {"ok": True, "message": "Processing PR fix in background"}
+
+        logger.debug(f"[webhook] Ignoring review with state: {review_state}")
+        return {"ok": True, "message": f"Ignoring review state: {review_state}"}
+
+    # Handle check_suite completed - review
+    if event == "check_suite" and action == "completed":
+        check_suite = payload.get("check_suite", {})
+        pull_requests = check_suite.get("pull_requests", [])
+
+        if not pull_requests:
+            logger.debug("[webhook] check_suite has no PRs, ignoring")
+            return {"ok": True, "message": "No PRs in check_suite"}
+
+        # Process first PR (usually there's only one)
+        pr_data = pull_requests[0]
+        pr_number = pr_data.get("number")
+        repo_data = payload.get("repository", {})
+        pr_url = f"{repo_data.get('html_url')}/pull/{pr_number}"
+
+        logger.info(f"[webhook] check_suite completed for PR: {pr_url}")
+        background_tasks.add_task(process_check_suite_completed, pr_url)
+        return {"ok": True, "message": "Processing review in background"}
+
+    # Ignore other events
     logger.debug(f"[webhook] Ignored event: {event} action: {action}")
     return {"ok": True, "message": f"Event {event}/{action} ignored"}
 

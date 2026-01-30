@@ -71,8 +71,8 @@ def handle_fixissue(issue_url: str) -> str:
         return pr_url
 
 
-def handle_review(pr_url: str) -> None:
-    """Handle review command."""
+def handle_review(pr_url: str) -> bool:
+    """Handle review command. Returns True if approved, False otherwise."""
     owner, repo, pr_number = parse_pr_url(pr_url)
     logger.info(f"Reviewing PR #{pr_number} in {owner}/{repo}")
 
@@ -141,6 +141,7 @@ def handle_review(pr_url: str) -> None:
     pull_request.create_review(body=formatted_comment, event="COMMENT")
 
     logger.info(f"Review posted successfully (approve={approve})")
+    return approve
 
 
 def handle_fixpr(pr_url: str) -> None:

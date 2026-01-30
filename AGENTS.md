@@ -11,7 +11,11 @@ tishcode - это AI coding agent для автоматизации работы
 
 **Webhook сервер:**
 - `uvicorn server:app --reload --port 8000` - запуск сервера
-- Обрабатывает событие создания issue и автоматически запускает fixissue
+- События:
+  - `issues/opened` → fixissue (создаёт PR)
+  - `pull_request_review/submitted` (changes_requested) → fixpr (с проверкой счётчика)
+  - `check_suite/completed` → review
+- Автоматический цикл: CI завершён → review → (changes_requested) → fixpr → CI → review → ... до approve или TC_MAX_RETRIES
 
 ## Структура проекта
 
@@ -25,6 +29,7 @@ Entry points:
 - `src/review_agent.py` - агент для ревью PR
 - `src/github_utils.py` - утилиты для работы с GitHub API
 - `src/git_utils.py` - утилиты для работы с git репозиториями
+- `src/db.py` - SQLite для отслеживания попыток фиксов (только сервер)
 - `src/logger.py` - настройка логирования
 
 ## Правила кодирования
@@ -54,3 +59,8 @@ Entry points:
 
 ## Конфигурация
 Все секреты и настройки хранятся в `.env`. Смотри `.env.example` для примера.
+
+### Переменные окружения
+- Не используй значения по умолчанию для переменных окружения
+- Если переменная не задана — выбрасывай ошибку при старте
+- Это помогает сразу обнаружить проблемы с конфигурацией

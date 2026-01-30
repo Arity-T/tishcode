@@ -39,6 +39,22 @@ def extract_issue_number_from_pr_title(pr_title: str) -> int | None:
     return None
 
 
+def are_all_workflows_completed(gh_repo: Repository, head_sha: str) -> bool:
+    """Check if all workflow runs for the given SHA are completed."""
+    runs = list(gh_repo.get_workflow_runs(head_sha=head_sha))
+    if not runs:
+        logger.debug(f"No workflow runs found for SHA: {head_sha}")
+        return True
+
+    for run in runs:
+        if run.status != "completed":
+            logger.debug(f"Workflow '{run.name}' still running (status={run.status})")
+            return False
+
+    logger.debug(f"All {len(runs)} workflows completed for SHA: {head_sha}")
+    return True
+
+
 def get_workflow_runs_and_logs(
     gh_repo: Repository, pull_request: PullRequest
 ) -> tuple[list[WorkflowRun], dict[int, str | None]]:

@@ -31,6 +31,19 @@ uv run python main.py fixpr <pr-url>
 uv run uvicorn server:app --reload --port 8000
 ```
 
-Webhook endpoint: `POST /webhook`
+**Endpoints:**
+- `POST /webhook` - GitHub webhook
+- `GET /health` - health check
 
-Health check: `GET /health`
+**Обрабатываемые события:**
+- `issues/opened` → fixissue (создаёт PR)
+- `pull_request_review/submitted` (changes_requested) → fixpr
+- `check_suite/completed` → review
+
+**Автоматический цикл:**
+1. Создаётся issue → агент создаёт PR
+2. CI завершается → агент делает review
+3. Если review=changes_requested → агент фиксит PR
+4. Повтор шагов 2-3 до approve или достижения `TC_MAX_RETRIES`
+
+Состояние (количество попыток) хранится в SQLite (`TC_DB_PATH`).
