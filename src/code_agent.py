@@ -50,6 +50,14 @@ def run_code_agent_fixissue(issue: Issue, repo_path: Path) -> tuple[str, str]:
             - Write the PR title and PR body in the same language
                 as the issue title and body
             - You can edit .github/workflows files if necessary to fix the issue
+
+            **IMPORTANT - Tool Call Limit:**
+            If you reach the tool call limit before completing the task:
+            - STOP immediately and do not attempt to continue calling tools
+            - In your PR title, clearly state: "Failed: Tool call limit reached"
+            - In your PR body, explain that you reached the tool call limit
+                and were unable to fix the issue
+            - Provide any partial analysis or findings you discovered
         """),
     )
 
@@ -125,6 +133,14 @@ def run_code_agent_fixpr(
             - Ensure your changes are well-documented
             - Write the comment in the same language as the review
             - You can edit .github/workflows files if necessary to fix the issues
+
+            **IMPORTANT - Tool Call Limit:**
+            If you reach the tool call limit before completing the task:
+            - STOP immediately and do not attempt to continue calling tools
+            - In your comment, clearly state that you reached the tool call limit
+                and were unable to fix the PR
+            - Explain what you tried to do and what remained incomplete
+            - Provide any partial analysis or findings you discovered
         """),
     )
 

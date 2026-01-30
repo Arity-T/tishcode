@@ -169,6 +169,14 @@ def run_review_agent(
                 as they appear
             - Never make up error messages or file locations - only use information
                 explicitly present in the logs
+
+            **IMPORTANT - Tool Call Limit:**
+            If you reach the tool call limit before completing the task:
+            - STOP immediately and do not attempt to continue calling tools
+            - Set approve=false in your response
+            - In your review_comment, clearly state that you reached the tool call
+                limit and were unable to complete the review
+            - Provide any partial analysis or findings you discovered
         """),
     )
 
