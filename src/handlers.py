@@ -62,7 +62,7 @@ def handle_fixissue(issue_url: str) -> str:
         pr_url = create_pr(
             gh_repo,
             head_branch=branch_name,
-            base_branch="main",
+            base_branch=gh_repo.default_branch,
             title=full_pr_title,
             body=pr_body,
         )
