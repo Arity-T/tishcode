@@ -4,14 +4,23 @@
 
 tishcode - это AI coding agent для автоматизации работы с GitHub issues и pull requests через GitHub App API.
 
-**Основные команды:**
+**CLI команды:**
 - `main.py fixissue <issue-url>` - создает PR для решения issue
 - `main.py review <pr-url>` - делает ревью PR
 - `main.py fixpr <pr-url>` - вносит исправления в существующий PR
 
+**Webhook сервер:**
+- `uvicorn server:app --reload --port 8000` - запуск сервера
+- Обрабатывает событие создания issue и автоматически запускает fixissue
+
 ## Структура проекта
 
-Весь код находится в папке `src/`:
+Entry points:
+- `main.py` - CLI для запуска команд
+- `server.py` - FastAPI webhook сервер
+
+Бизнес-логика в папке `src/`:
+- `src/handlers.py` - обработчики команд (используются и CLI и сервером)
 - `src/code_agent.py` - агенты для исправления issue и PR
 - `src/review_agent.py` - агент для ревью PR
 - `src/github_utils.py` - утилиты для работы с GitHub API
@@ -19,6 +28,11 @@ tishcode - это AI coding agent для автоматизации работы
 - `src/logger.py` - настройка логирования
 
 ## Правила кодирования
+
+### uv
+
+В проекте используется uv. С помощью uv add добавляем зависимости.
+С помощью uv run запускаем.
 
 ### Type hints
 Используй современный синтаксис type hints:
