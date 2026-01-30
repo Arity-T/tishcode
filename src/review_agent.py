@@ -158,6 +158,13 @@ def run_review_agent(
             - Approve (approve=true) only if all checks pass and changes are correct
             - Reject (approve=false) if there are failing tests or issues
             - Write the review comment in the same language as the issue
+            
+            **When analyzing logs with errors:**
+            - Specify the exact file names and line numbers where errors occurred (if available in logs)
+            - Extract and quote exact error messages from logs - use can use markdown code blocks
+            - Format log quotes clearly, for example: "Error message from logs: ```exact quote```"
+            - If file paths and line numbers are present in logs, include them precisely as they appear
+            - Never make up error messages or file locations - only use information explicitly present in the logs
         """),
         tool_call_limit=int(os.getenv("TC_AGENT_TOOL_CALL_LIMIT")),
     )
