@@ -5,11 +5,12 @@ import re
 from textwrap import dedent
 
 from agno.agent import Agent
-from agno.models.openai import OpenAIChat
 from github.Issue import Issue
 from github.PullRequest import PullRequest
 from github.WorkflowRun import WorkflowRun
 from pydantic import BaseModel, Field
+
+from .agent_utils import create_openai_model
 
 logger = logging.getLogger("tishcode")
 
@@ -146,22 +147,9 @@ def run_review_agent(
                 )
 
     # Create agent
-    model_id = os.getenv("TC_OPENAI_MODEL")
-    api_key = os.getenv("TC_OPENAI_API_KEY")
-    base_url = os.getenv("TC_OPENAI_BASE_URL")
-
-    if not model_id or not api_key or not base_url:
-        raise ValueError("OpenAI environment variables are not set")
-
-    logger.info(f"Creating review agent with model: {model_id}")
-
     agent = Agent(
         name="ReviewAgent",
-        model=OpenAIChat(
-            id=model_id,
-            api_key=api_key,
-            base_url=base_url,
-        ),
+        model=create_openai_model(),
         output_schema=ReviewResult,
         use_json_mode=True,
         instructions=dedent("""\
@@ -182,8 +170,7 @@ def run_review_agent(
             - Reject (approve=false) if there are failing tests or issues
             - Write the review comment in the same language as the issue
         """),
-        tool_call_limit=int(os.getenv("TC_AGENT_TOOL_CALL_LIMIT", "30")),
-        markdown=True,
+        tool_call_limit=int(os.getenv("TC_AGENT_TOOL_CALL_LIMIT")),
     )
 
     # Prepare user message

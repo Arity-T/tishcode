@@ -17,6 +17,11 @@ from src.logger import setup_logger
 from src.review_agent import run_review_agent
 
 
+def add_agent_signature(text: str, action: str = "by") -> str:
+    """Add agent signature footer to text."""
+    return f"{text}\n\n---\n*🤖 Automated {action} tishcode agent*"
+
+
 def main():
     load_dotenv()
     logger = setup_logger()
@@ -76,13 +81,14 @@ def handle_fixissue(issue_url: str, logger):
 
         logger.info("Creating pull request")
         full_pr_title = f"[tishcode fix issue #{issue_number}] {pr_title}"
-        pr_body_with_closes = f"{pr_body}\n\nCloses #{issue_number}"
+        pr_body = f"{pr_body}\n\nCloses #{issue_number}"
+        pr_body = add_agent_signature(pr_body)
         pr_url = create_pr(
             gh_repo,
             head_branch=branch_name,
             base_branch="main",
             title=full_pr_title,
-            body=pr_body_with_closes,
+            body=pr_body,
         )
 
         logger.info(f"Pull request created: {pr_url}")
@@ -120,27 +126,39 @@ def handle_review(pr_url: str, logger):
 
     # Add approval status header
     status_icon = "✅" if approve else "❌"
-    status_text = "APPROVED - Ready to merge" if approve else "CHANGES REQUESTED - Issues need to be fixed"
-    
+    status_text = (
+        "APPROVED - Ready to merge"
+        if approve
+        else "CHANGES REQUESTED - Issues need to be fixed"
+    )
+
     formatted_comment = f"## {status_icon} Code Review Result: {status_text}\n\n"
-    
+
     # Add failed workflows summary if any
-    failed_runs = [run for run in workflow_runs if run.conclusion in ("failure", "timed_out")]
+    failed_runs = [
+        run for run in workflow_runs if run.conclusion in ("failure", "timed_out")
+    ]
     if failed_runs:
         formatted_comment += "### ⚠️ Failed Workflows\n\n"
         for run in failed_runs:
             formatted_comment += f"**{run.name}** ({run.conclusion})\n"
             jobs = list(run.jobs())
-            failed_jobs = [job for job in jobs if job.conclusion in ("failure", "timed_out")]
+            failed_jobs = [
+                job for job in jobs if job.conclusion in ("failure", "timed_out")
+            ]
             if failed_jobs:
-                formatted_comment += "  - Failed jobs: " + ", ".join([f"`{job.name}`" for job in failed_jobs]) + "\n"
+                formatted_comment += (
+                    "  - Failed jobs: "
+                    + ", ".join([f"`{job.name}`" for job in failed_jobs])
+                    + "\n"
+                )
         formatted_comment += "\n---\n\n"
-    
+
     # Add agent's review comment
     formatted_comment += review_comment
-    
+
     # Add footer signature
-    formatted_comment += "\n\n---\n*🤖 Automated review by tishcode agent*"
+    formatted_comment = add_agent_signature(formatted_comment, "review by")
 
     logger.info("Posting review comment")
     pull_request.create_review(body=formatted_comment, event="COMMENT")
@@ -187,6 +205,7 @@ def handle_fixpr(pr_url: str, logger):
         local_repo.git.push("origin", branch_name)
 
         logger.info("Posting comment to PR")
+        comment = add_agent_signature(comment)
         pull_request.create_issue_comment(body=comment)
 
         logger.info("PR fix completed successfully")
