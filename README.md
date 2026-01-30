@@ -1,16 +1,57 @@
-# tishcode
+# tishcode 🤖
 
-AI coding agent для автоматизации работы с GitHub issues и pull requests.
+AI coding agent для автоматизации работы с GitHub!
 
-## Установка
+## Getting started
+
+Чтобы подключить tishcode к репозиторию достаточно в несколько нажатий установить [tishenko-code](https://github.com/apps/tishenko-code) GitHub App и выбрать нужный репозиторий. После этого для всех новых issues агенты будут автоматически создавать Pull Requests.
+
+Если в репозитории есть тесты в GitHub Actions, то по-мимо агентов для написания кода, в дело вступят агенты ревьюверы. Они автоматически будут анализировать изменения и результаты запуска тестов.
+
+Пример минимального workflow для GitHub Actions, после которого будут запускаться агенты ревьюверы:
+
+```yml
+name: Trigger AIReviewer workflow
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  trigger-airviewer:
+    name: Trigger AIReviewer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Anything here
+        run: |
+          echo "It's not a real check, just a trigger for AIReviewer workflow."
+```
+
+## Локальный запуск
+
+Если вы хотите протестировать tishcode локально или развернуть собственную копию, нужно сначала создать GitHub App и получить приватный ключ.
+
+### Создание GitHub App
+
+1. [Создайте GitHub App](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app) с разрешениями: **Actions, Checks, Contents, Issues, Pull requests, Workflows** (Read and write)
+
+2. [Сгенерируйте приватный ключ](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps) — скачается `.pem` файл
+
+3. Для webhook-сервера: настройте [Webhook URL](https://docs.github.com/en/webhooks/using-webhooks/creating-webhooks) и подпишитесь на события: **Issues, Pull Request, Pull Request Review, Check Suite**
+
+   Для локальной разработки можно использовать [smee.io](https://smee.io) для проксирования вебхуков как [рекомендует документация GitHub](https://docs.github.com/en/webhooks/using-webhooks/handling-webhook-deliveries#forward-webhooks):
+   ```bash
+   npm install -g smee-client
+   smee --url https://smee.io/<your-channel> --path /webhook --port 8000
+   ```
+
+### Установка зависимостей
 
 ```bash
 uv sync
 cp .env.example .env
-# Заполни .env своими значениями
+# Заполняем .env своими значениями
 ```
-
-## Запуск
 
 ### CLI
 
@@ -43,12 +84,12 @@ uv run uvicorn server:app --reload --port 8000
 **Автоматический цикл:**
 1. Создаётся issue → агент создаёт PR
 2. CI завершается → агент делает review
-3. Если review=changes_requested → агент фиксит PR
-4. Повтор шагов 2-3 до approve или достижения `TC_MAX_RETRIES`
+3. Если во время review были замечания → агент фиксит PR
+4. Агент повторяет цикл пока не выполнит задачу или достигнет `TC_MAX_RETRIES`
 
 Состояние (количество попыток) хранится в SQLite (`TC_DB_PATH`).
 
-## Docker
+## Запуск через Docker
 
 Пример `.env` для Docker: `.env.docker-example` (без переменных с путями, они фиксированы в образе).
 
@@ -102,7 +143,7 @@ uv run ruff check .
 uv run ruff check . --fix
 ```
 
-Mypy для проверки типов.
+и mypy для проверки типов.
 
 ```bash
 uv run mypy .
