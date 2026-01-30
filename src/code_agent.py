@@ -29,10 +29,12 @@ SYSTEM_PROMPT_FIXISSUE = dedent("""\
     - replace_file_chunk(file_name, start_line, end_line, new_content) - REPLACE lines
     - delete_file(file_name) - delete a file
 
-    **IMPORTANT - Editing Tools:**
-    - insert_lines: ADDS new lines WITHOUT deleting existing (use for docstrings)
-    - replace_file_chunk: DELETES lines and replaces with new content
-    - When adding docstring: use insert_lines after the function definition line
+    **CRITICAL - Choosing the Right Edit Tool:**
+    - To ADD docstring/comments/code: use insert_lines (preserves existing code)
+    - To MODIFY existing lines: use replace_file_chunk (DELETES old lines!)
+    - replace_file_chunk WARNING: you must include ALL code in new_content,
+      any lines not included will be PERMANENTLY DELETED
+    - PREFER insert_lines when just adding new content
 
     **Your Task:**
     1. Analyze the codebase using available file tools
@@ -69,10 +71,12 @@ SYSTEM_PROMPT_FIXPR = dedent("""\
     - replace_file_chunk(file_name, start_line, end_line, new_content) - REPLACE lines
     - delete_file(file_name) - delete a file
 
-    **IMPORTANT - Editing Tools:**
-    - insert_lines: ADDS new lines WITHOUT deleting existing (use for docstrings)
-    - replace_file_chunk: DELETES lines and replaces with new content
-    - When adding docstring: use insert_lines after the function definition line
+    **CRITICAL - Choosing the Right Edit Tool:**
+    - To ADD docstring/comments/code: use insert_lines (preserves existing code)
+    - To MODIFY existing lines: use replace_file_chunk (DELETES old lines!)
+    - replace_file_chunk WARNING: you must include ALL code in new_content,
+      any lines not included will be PERMANENTLY DELETED
+    - PREFER insert_lines when just adding new content
 
     **Your Task:**
     1. Read and understand the review feedback

@@ -83,9 +83,7 @@ def read_file_chunk(file_name: str, start_line: int, end_line: int) -> str:
 
         # Validate line numbers (1-indexed)
         if start_line < 1 or end_line < 1:
-            return _log_result(
-                "read_file_chunk", "Error: Line numbers must be >= 1"
-            )
+            return _log_result("read_file_chunk", "Error: Line numbers must be >= 1")
         if start_line > end_line:
             return _log_result(
                 "read_file_chunk", "Error: start_line must be <= end_line"
@@ -173,7 +171,9 @@ def insert_lines(file_name: str, after_line: int, content: str) -> str:
         new_contents = "\n".join(result_lines)
 
         file_path.write_text(new_contents, encoding="utf-8")
-        logger.info(f"Inserted {len(new_lines)} lines after line {after_line} in {file_name}")
+        logger.info(
+            f"Inserted {len(new_lines)} lines after line {after_line} in {file_name}"
+        )
         return _log_result(
             "insert_lines",
             f"Successfully inserted {len(new_lines)} lines after line {after_line}",
@@ -218,9 +218,7 @@ def replace_file_chunk(
 
         # Validate line numbers (1-indexed)
         if start_line < 1 or end_line < 1:
-            return _log_result(
-                "replace_file_chunk", "Error: Line numbers must be >= 1"
-            )
+            return _log_result("replace_file_chunk", "Error: Line numbers must be >= 1")
         if start_line > end_line:
             return _log_result(
                 "replace_file_chunk", "Error: start_line must be <= end_line"
@@ -236,21 +234,26 @@ def replace_file_chunk(
         after = lines[end_line:]
         new_lines = new_content.split("\n") if new_content else []
 
+        # Check for potential data loss
+        old_line_count = end_line - start_line + 1
+        new_line_count = len(new_lines)
+        lines_lost = old_line_count - new_line_count
+
         result_lines = before + new_lines + after
         new_contents = "\n".join(result_lines)
 
         file_path.write_text(new_contents, encoding="utf-8")
-        logger.info(
-            f"Replaced lines {start_line}-{end_line} in {file_name}"
-        )
-        return _log_result(
-            "replace_file_chunk",
-            f"Successfully replaced lines {start_line}-{end_line} in {file_name}",
-        )
+        logger.info(f"Replaced lines {start_line}-{end_line} in {file_name}")
+
+        # Warn if significant content was lost
+        msg = f"Replaced {old_line_count} lines with {new_line_count} lines"
+        if lines_lost > 3:
+            msg += f". WARNING: {lines_lost} lines removed - verify this is correct!"
+            logger.warning(f"Potential data loss: {lines_lost} lines removed")
+
+        return _log_result("replace_file_chunk", msg)
     except FileNotFoundError:
-        return _log_result(
-            "replace_file_chunk", f"Error: File not found: {file_name}"
-        )
+        return _log_result("replace_file_chunk", f"Error: File not found: {file_name}")
     except Exception as e:
         logger.error(f"Error replacing file chunk: {e}")
         return _log_result("replace_file_chunk", f"Error replacing file chunk: {e}")
@@ -295,9 +298,7 @@ def list_files(directory: str = ".") -> str:
     safe, dir_path = _check_path(directory)
     if not safe:
         logger.error(f"Attempted to list files outside base directory: {directory}")
-        return _log_result(
-            "list_files", "Error: Cannot list files outside repository"
-        )
+        return _log_result("list_files", "Error: Cannot list files outside repository")
     try:
         if not dir_path.is_dir():
             return _log_result("list_files", f"Error: Not a directory: {directory}")
@@ -362,9 +363,7 @@ def grep_search(query: str, path: str = ".", file_pattern: str = "**/*") -> str:
         if search_path.is_file():
             files_to_search = [search_path]
         else:
-            files_to_search = [
-                f for f in search_path.glob(file_pattern) if f.is_file()
-            ]
+            files_to_search = [f for f in search_path.glob(file_pattern) if f.is_file()]
 
         for file_path in files_to_search:
             if len(matches) >= max_matches:
@@ -381,11 +380,13 @@ def grep_search(query: str, path: str = ".", file_pattern: str = "**/*") -> str:
 
                 for line_num, line in enumerate(lines, start=1):
                     if query in line:
-                        matches.append({
-                            "file": rel_path,
-                            "line": line_num,
-                            "content": line.strip()[:200],  # Truncate long lines
-                        })
+                        matches.append(
+                            {
+                                "file": rel_path,
+                                "line": line_num,
+                                "content": line.strip()[:200],  # Truncate long lines
+                            }
+                        )
                         if len(matches) >= max_matches:
                             break
             except (UnicodeDecodeError, PermissionError):
