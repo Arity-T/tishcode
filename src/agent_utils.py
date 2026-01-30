@@ -1,8 +1,8 @@
 import logging
 import os
 
-from agno.models.openai import OpenAIChat
 from github.PullRequest import PullRequest
+from langchain_openai import ChatOpenAI
 
 logger = logging.getLogger("tishcode")
 
@@ -22,8 +22,8 @@ def get_pr_changes(pull_request: PullRequest) -> list[dict[str, str | int]]:
     return changes
 
 
-def create_openai_model() -> OpenAIChat:
-    """Create OpenAI model with validation of environment variables."""
+def create_chat_model() -> ChatOpenAI:
+    """Create LangChain ChatOpenAI model with validation of environment variables."""
     model_id = os.getenv("TC_OPENAI_MODEL")
     api_key = os.getenv("TC_OPENAI_API_KEY")
     base_url = os.getenv("TC_OPENAI_BASE_URL")
@@ -37,8 +37,8 @@ def create_openai_model() -> OpenAIChat:
 
     logger.info(f"Using model: {model_id}, base_url: {base_url}")
 
-    return OpenAIChat(
-        id=model_id,
+    return ChatOpenAI(
+        model=model_id,
         api_key=api_key,
         base_url=base_url,
     )

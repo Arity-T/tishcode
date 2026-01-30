@@ -1,16 +1,14 @@
 import json
 import logging
-import os
 import re
 from textwrap import dedent
 
-from agno.agent import Agent
 from github.Issue import Issue
 from github.PullRequest import PullRequest
 from github.WorkflowRun import WorkflowRun
 from pydantic import BaseModel, Field
 
-from .agent_utils import create_openai_model, get_pr_changes
+from .agent_utils import create_chat_model, get_pr_changes
 
 logger = logging.getLogger("tishcode")
 
@@ -66,6 +64,37 @@ def extract_relevant_log_lines(log_text: str, context_lines: int = 50) -> str:
     processed_lines = [preprocess_log_line(line) for line in relevant_lines]
 
     return "\n".join(processed_lines)
+
+
+SYSTEM_PROMPT_REVIEW = dedent("""\
+    You are a code review agent. Your task is to analyze pull requests
+    and provide constructive feedback.
+
+    **Your Task:**
+    1. Review the code changes in the PR
+    2. Check if changes match the issue requirements
+    3. Analyze CI/CD workflow results
+    4. Identify errors and their root causes
+    5. Provide a review comment and approval decision
+
+    **Guidelines:**
+    - Be concise and constructive in your feedback
+    - Focus on critical issues and errors
+    - Explain what caused failures and suggest fixes
+    - Approve only if all checks pass and changes are correct
+    - Reject if there are failing tests or issues
+    - Write the review comment in the same language as the issue
+
+    **When analyzing logs with errors:**
+    - Specify the exact file names and line numbers where errors occurred
+        (if available in logs)
+    - Extract and quote exact error messages from logs - use can use markdown
+        code blocks
+    - If file paths and line numbers are present in logs, include them precisely
+        as they appear
+    - Never make up error messages or file locations - only use information
+        explicitly present in the logs
+""")
 
 
 def run_review_agent(
@@ -135,55 +164,9 @@ def run_review_agent(
                     }
                 )
 
-    # Create agent
-    agent = Agent(
-        name="ReviewAgent",
-        model=create_openai_model(),
-        output_schema=ReviewResult,
-        use_json_mode=True,
-        instructions=dedent("""\
-            You are a code review agent. Your task is to analyze pull requests
-            and provide constructive feedback.
-
-            **Your Task:**
-            1. Review the code changes in the PR
-            2. Check if changes match the issue requirements
-            3. Analyze CI/CD workflow results
-            4. Identify errors and their root causes
-            5. Provide a review comment and approval decision
-
-            **Guidelines:**
-            - Be concise and constructive in your feedback
-            - Focus on critical issues and errors
-            - Explain what caused failures and suggest fixes
-            - Approve (approve=true) only if all checks pass and changes are correct
-            - Reject (approve=false) if there are failing tests or issues
-            - Write the review comment in the same language as the issue
-
-            **When analyzing logs with errors:**
-            - Specify the exact file names and line numbers where errors occurred
-                (if available in logs)
-            - Extract and quote exact error messages from logs - use can use markdown
-                code blocks
-            - If file paths and line numbers are present in logs, include them precisely
-                as they appear
-            - Never make up error messages or file locations - only use information
-                explicitly present in the logs
-
-            **IMPORTANT - Tool Call Limit:**
-            If you reach the tool call limit before completing the task:
-            - STOP immediately and do not attempt to continue calling tools
-            - Set approve=false in your response
-            - In your review_comment, clearly state that you reached the tool call
-                limit and were unable to complete the review
-            - Provide any partial analysis or findings you discovered
-        """),
-    )
-
-    tool_call_limit = os.getenv("TC_AGENT_TOOL_CALL_LIMIT")
-    if not tool_call_limit:
-        raise ValueError("TC_AGENT_TOOL_CALL_LIMIT environment variable is not set")
-    agent.tool_call_limit = int(tool_call_limit)
+    # Create model with structured output
+    model = create_chat_model()
+    structured_model = model.with_structured_output(ReviewResult)
 
     # Prepare user message
     user_message = dedent(f"""\
@@ -213,10 +196,12 @@ def run_review_agent(
     """)
 
     logger.debug("Running review agent")
-    response = agent.run(user_message, stream=False)
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT_REVIEW},
+        {"role": "user", "content": user_message},
+    ]
 
-    result = response.content
-    assert result is not None, "Agent response content is None"
+    result = structured_model.invoke(messages)
     logger.info(f"Review completed. Approve: {result.approve}")
 
     return result.review_comment, result.approve
