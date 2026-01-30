@@ -148,3 +148,8 @@ uv run ruff check . --fix
 ```bash
 uv run mypy .
 ```
+
+## Тесты 
+
+Для тестирования сделал [форк](https://github.com/willemt/pytest-asyncio-cooperative) небольшого репозитория
+с кодом на python и тестовыми Workflow для GitHub Actions. Запускал с моделькой gpt-4o-mini.
