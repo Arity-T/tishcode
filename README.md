@@ -153,3 +153,8 @@ uv run mypy .
 
 Для тестирования сделал [форк](https://github.com/willemt/pytest-asyncio-cooperative) небольшого репозитория
 с кодом на python и тестовыми Workflow для GitHub Actions. Запускал с моделькой gpt-4o-mini.
+
+С простыми задачми справляется хорошо [#41](https://github.com/Arity-T/pytest-asyncio-cooperative/issues/41), [#43](https://github.com/Arity-T/pytest-asyncio-cooperative/issues/43).
+
+Пытается решать и более сложные, но уже с переменным успехом, отрабатывает все
+5 итераций и останавливается, в бесконечный цикл не уходит [#37](https://github.com/Arity-T/pytest-asyncio-cooperative/pull/37).
