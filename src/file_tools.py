@@ -17,10 +17,12 @@ def _check_path(relative_path: str) -> tuple[bool, Path]:
     if _base_dir is None:
         return False, Path()
     try:
+        base_resolved = _base_dir.resolve()
         resolved = (_base_dir / relative_path).resolve()
-        if _base_dir.resolve() in resolved.parents or resolved == _base_dir.resolve():
+        # Check that resolved path is inside base_dir (or equals to it)
+        if resolved == base_resolved or base_resolved in resolved.parents:
             return True, resolved
-        return False, _base_dir
+        return False, base_resolved
     except Exception:
         return False, _base_dir
 
@@ -129,16 +131,74 @@ def save_file(file_name: str, contents: str) -> str:
 
 
 @tool
-def replace_file_chunk(
-    file_name: str, start_line: int, end_line: int, new_content: str
-) -> str:
-    """Replace lines from start_line to end_line with new content (1-indexed).
+def insert_lines(file_name: str, after_line: int, content: str) -> str:
+    """Insert new lines AFTER the specified line number (1-indexed).
+
+    Use this to add content without deleting existing lines (e.g. adding docstrings).
 
     Args:
         file_name: Path to the file relative to repository root
-        start_line: First line to replace (1-indexed)
-        end_line: Last line to replace (1-indexed, inclusive)
-        new_content: New content to insert (can be multiple lines)
+        after_line: Line number after which to insert (1-indexed, 0 = insert at start)
+        content: Content to insert (can be multiple lines)
+    """
+    logger.debug(
+        f"[insert_lines] file_name={file_name}, "
+        f"after_line={after_line}, content_len={len(content)}"
+    )
+    safe, file_path = _check_path(file_name)
+    if not safe:
+        logger.error(f"Attempted to modify file outside base directory: {file_name}")
+        return _log_result(
+            "insert_lines", "Error: Cannot modify file outside repository"
+        )
+    try:
+        contents = file_path.read_text(encoding="utf-8")
+        lines = contents.split("\n")
+        total_lines = len(lines)
+
+        if after_line < 0:
+            return _log_result("insert_lines", "Error: after_line must be >= 0")
+        if after_line > total_lines:
+            return _log_result(
+                "insert_lines",
+                f"Error: after_line {after_line} exceeds file length ({total_lines})",
+            )
+
+        # Insert new lines after specified line
+        before = lines[:after_line]
+        after = lines[after_line:]
+        new_lines = content.split("\n") if content else []
+
+        result_lines = before + new_lines + after
+        new_contents = "\n".join(result_lines)
+
+        file_path.write_text(new_contents, encoding="utf-8")
+        logger.info(f"Inserted {len(new_lines)} lines after line {after_line} in {file_name}")
+        return _log_result(
+            "insert_lines",
+            f"Successfully inserted {len(new_lines)} lines after line {after_line}",
+        )
+    except FileNotFoundError:
+        return _log_result("insert_lines", f"Error: File not found: {file_name}")
+    except Exception as e:
+        logger.error(f"Error inserting lines: {e}")
+        return _log_result("insert_lines", f"Error inserting lines: {e}")
+
+
+@tool
+def replace_file_chunk(
+    file_name: str, start_line: int, end_line: int, new_content: str
+) -> str:
+    """REPLACE (delete and insert) lines from start_line to end_line (1-indexed).
+
+    WARNING: This DELETES the original lines and replaces with new_content.
+    If you want to ADD content without deleting, use insert_lines instead.
+
+    Args:
+        file_name: Path to the file relative to repository root
+        start_line: First line to REPLACE (will be deleted)
+        end_line: Last line to REPLACE (will be deleted)
+        new_content: New content to insert in place of deleted lines
     """
     logger.debug(
         f"[replace_file_chunk] file_name={file_name}, "
@@ -275,6 +335,75 @@ def search_files(pattern: str) -> str:
         return _log_result("search_files", f"Error searching files: {e}")
 
 
+@tool
+def grep_search(query: str, path: str = ".", file_pattern: str = "**/*") -> str:
+    """Search for text in file contents (like grep). Returns matching lines.
+
+    Args:
+        query: Text to search for (case-sensitive substring match)
+        path: Directory to search in (default "." for repository root)
+        file_pattern: Glob pattern for files to search (default "**/*" for all)
+    """
+    logger.debug(
+        f"[grep_search] query={query}, path={path}, file_pattern={file_pattern}"
+    )
+    if _base_dir is None:
+        return _log_result("grep_search", "Error: Base directory not set")
+
+    safe, search_path = _check_path(path)
+    if not safe:
+        return _log_result("grep_search", "Error: Cannot search outside repository")
+
+    try:
+        matches: list[dict[str, str | int]] = []
+        max_matches = 100  # Limit to prevent huge outputs
+
+        # Get files to search
+        if search_path.is_file():
+            files_to_search = [search_path]
+        else:
+            files_to_search = [
+                f for f in search_path.glob(file_pattern) if f.is_file()
+            ]
+
+        for file_path in files_to_search:
+            if len(matches) >= max_matches:
+                break
+
+            # Skip binary files and hidden directories
+            try:
+                rel_path = str(file_path.relative_to(_base_dir))
+                if "/.git/" in f"/{rel_path}" or rel_path.startswith(".git/"):
+                    continue
+
+                content = file_path.read_text(encoding="utf-8")
+                lines = content.split("\n")
+
+                for line_num, line in enumerate(lines, start=1):
+                    if query in line:
+                        matches.append({
+                            "file": rel_path,
+                            "line": line_num,
+                            "content": line.strip()[:200],  # Truncate long lines
+                        })
+                        if len(matches) >= max_matches:
+                            break
+            except (UnicodeDecodeError, PermissionError):
+                # Skip binary or unreadable files
+                continue
+
+        result = {
+            "query": query,
+            "matches_found": len(matches),
+            "truncated": len(matches) >= max_matches,
+            "matches": matches,
+        }
+        return _log_result("grep_search", json.dumps(result, indent=2))
+    except Exception as e:
+        logger.error(f"Error in grep_search: {e}")
+        return _log_result("grep_search", f"Error searching: {e}")
+
+
 def create_file_tools(base_dir: Path) -> list:
     """Create file tools configured for the given base directory."""
     global _base_dir
@@ -284,8 +413,10 @@ def create_file_tools(base_dir: Path) -> list:
         read_file,
         read_file_chunk,
         save_file,
+        insert_lines,
         replace_file_chunk,
         delete_file,
         list_files,
         search_files,
+        grep_search,
     ]
