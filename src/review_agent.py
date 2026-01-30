@@ -10,7 +10,7 @@ from github.PullRequest import PullRequest
 from github.WorkflowRun import WorkflowRun
 from pydantic import BaseModel, Field
 
-from .agent_utils import create_openai_model
+from .agent_utils import create_openai_model, get_pr_changes
 
 logger = logging.getLogger("tishcode")
 
@@ -79,18 +79,7 @@ def run_review_agent(
 
     # Get code changes
     logger.debug("Fetching file changes from PR")
-    files = pull_request.get_files()
-    changes = []
-    for f in files:
-        changes.append(
-            {
-                "filename": f.filename,
-                "status": f.status,
-                "additions": f.additions,
-                "deletions": f.deletions,
-                "patch": f.patch if f.patch else "Binary file or no diff available",
-            }
-        )
+    changes = get_pr_changes(pull_request)
 
     # Prepare workflow runs summary
     logger.debug("Preparing workflow runs summary")

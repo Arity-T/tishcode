@@ -2,9 +2,25 @@ import logging
 import os
 
 from agno.models.openai import OpenAIChat
+from github.PullRequest import PullRequest
 
 
 logger = logging.getLogger("tishcode")
+
+
+def get_pr_changes(pull_request: PullRequest) -> list[dict[str, str | int]]:
+    """Extract code changes from pull request in structured format."""
+    files = pull_request.get_files()
+    changes = []
+    for f in files:
+        changes.append({
+            "filename": f.filename,
+            "status": f.status,
+            "additions": f.additions,
+            "deletions": f.deletions,
+            "patch": f.patch if f.patch else "Binary file or no diff available",
+        })
+    return changes
 
 
 def create_openai_model() -> OpenAIChat:
