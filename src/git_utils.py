@@ -30,9 +30,9 @@ def get_unique_branch_name(local_repo: Repo, base_name: str) -> str:
 @contextmanager
 def clone_temp_repo(owner: str, repo: str, installation_token: str):
     """Context manager for cloning repository to temporary directory."""
-    base_repos_path = os.getenv("REPOS_BASE_PATH")
+    base_repos_path = os.getenv("TC_REPOS_BASE_PATH")
     if not base_repos_path:
-        raise ValueError("REPOS_BASE_PATH must be set in .env")
+        raise ValueError("TC_REPOS_BASE_PATH must be set in .env")
     unique_id = str(uuid.uuid4())[:8]
     repo_path = Path(base_repos_path) / f"{owner}_{repo}_{unique_id}"
     repo_path.mkdir(parents=True, exist_ok=True)

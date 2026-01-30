@@ -153,12 +153,12 @@ def create_pr(
 
 def setup_github_access(owner: str, repo: str, logger) -> tuple[str, object]:
     """Setup GitHub access: get installation token and repository object."""
-    app_id = os.getenv("GITHUB_APP_ID")
-    private_key_path = os.getenv("GITHUB_PRIVATE_KEY_PATH")
+    app_id = os.getenv("TC_GITHUB_APP_ID")
+    private_key_path = os.getenv("TC_GITHUB_PRIVATE_KEY_PATH")
 
     if not app_id or not private_key_path:
         raise ValueError(
-            "GITHUB_APP_ID and GITHUB_PRIVATE_KEY_PATH must be set in .env"
+            "TC_GITHUB_APP_ID and TC_GITHUB_PRIVATE_KEY_PATH must be set in .env"
         )
 
     with open(private_key_path, "r") as f:

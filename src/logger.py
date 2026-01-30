@@ -4,7 +4,7 @@ import os
 
 def setup_logger() -> logging.Logger:
     """Configure and return logger with level from environment."""
-    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    log_level = os.getenv("TC_LOG_LEVEL", "INFO").upper()
 
     logging.basicConfig(
         format="%(asctime)s [%(levelname)s] %(message)s",
