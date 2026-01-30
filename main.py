@@ -77,12 +77,13 @@ def handle_fixissue(issue_url: str, logger):
 
         logger.info("Creating pull request")
         full_pr_title = f"[tishcode fix issue #{issue_number}] {pr_title}"
+        pr_body_with_closes = f"{pr_body}\n\nCloses #{issue_number}"
         pr_url = create_pr(
             gh_repo,
             head_branch=branch_name,
             base_branch="main",
             title=full_pr_title,
-            body=pr_body,
+            body=pr_body_with_closes,
         )
 
         logger.info(f"Pull request created: {pr_url}")
